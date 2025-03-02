@@ -1,4 +1,4 @@
-export const processImage = ({imageSource, setModifiedImage, setPoints, brightnessThreshold, quality}) => {
+export const processImage = ({imageSource, setModifiedImage, setPoints, brightnessThreshold, quality , scale}) => {
     const canvas = document.createElement('canvas');
     const img = new Image();
     img.src = imageSource;
@@ -44,7 +44,7 @@ export const processImage = ({imageSource, setModifiedImage, setPoints, brightne
             for (let x = 0; x < canvas.width; x++) {
                 const index = (y * canvas.width + x) * 4;
                 if (data[index] === 0 && data[index + 3] !== 0) { // Black pixels with non-transparent alpha
-                    newPoints.push({x:x*10, y:y*10});
+                    newPoints.push({x:x*scale, y:y*scale});
                 }
             }
         }

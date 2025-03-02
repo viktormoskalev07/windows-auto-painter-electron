@@ -1,5 +1,6 @@
 import { exec } from "child_process";
 import { screen } from "electron";
+import {sortPointsByProximity} from "./fpproximator.js";
 
 let isDrawing = false;
 let interval = null;
@@ -24,35 +25,42 @@ function getCursorPosition() {
 /**
  * Запускает рисование с автоматическим учётом DPI каждого монитора.
  */
-export function startDrawing(points) {
+export function startDrawing(_points , settings) {
+    console.log(settings)
+    const points =sortPointsByProximity(_points)
     if (isDrawing) return;
 
     let { x: startX, y: startY } = getCursorPosition();
     isDrawing = true;
     let index = 0;
     let lastX = startX, lastY = startY;
+        const loop = ()=>{
+            if (!isDrawing || index >= points.length) {
+                stopDrawing();
+                return;
+            }
+            const { x, y } = points[index];
+            const adjX = Math.round(startX + x);
+            const adjY = Math.round(startY + y);
 
-    interval = setInterval(() => {
-        if (!isDrawing || index >= points.length) {
-            stopDrawing();
-            return;
+            if (adjX !== lastX || adjY !== lastY) {
+
+
+                exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
+                exec("nircmd.exe sendmouse left down");
+                if(!settings?.oneLine){
+                    exec("nircmd.exe sendmouse left up");
+                }
+
+                lastX = adjX;
+                lastY = adjY;
+            }
+
+            index++;
+            setTimeout(loop , 1)
         }
-        const { x, y } = points[index];
-        const adjX = Math.round(startX + x);
-        const adjY = Math.round(startY + y);
+    loop()
 
-        if (adjX !== lastX || adjY !== lastY) {
-            console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
-            exec("nircmd.exe sendmouse left up");
-            exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
-            exec("nircmd.exe sendmouse left down");
-            exec("nircmd.exe sendmouse left up");
-            lastX = adjX;
-            lastY = adjY;
-        }
-
-        index++;
-    }, 5);
 }
 
 /**
@@ -64,5 +72,5 @@ export function stopDrawing() {
         interval = null;
     }
     isDrawing = false;
-    console.log("🛑 Drawing stopped!");
+    console.log(" Drawing stopped!");
 }

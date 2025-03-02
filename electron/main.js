@@ -7,6 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow;
 let lastPoints = []; // Храним последние точки
+let lastSettings = []; // Храним последние точки
 
 app.whenReady().then(() => {
     mainWindow = new BrowserWindow({
@@ -14,7 +15,7 @@ app.whenReady().then(() => {
         height: 1080,
         resizable: true,
         autoHideMenuBar: true,
-        alwaysOnTop: true,
+        alwaysOnTop: false,
         webPreferences: {
             preload: path.join(__dirname, "preload.cjs"),
             contextIsolation: true,
@@ -27,20 +28,22 @@ app.whenReady().then(() => {
     mainWindow.webContents.openDevTools();
     mainWindow.loadURL("http://localhost:5173");
 
-    ipcMain.on("load-points", (event, points) => {
+    ipcMain.on("load-points", (event, points , settings) => {
         lastPoints = points; // Загружаем точки без старта
+        lastSettings=settings
         console.log(`✅ Points loaded (${points.length} points)`);
     });
 
-    ipcMain.on("draw-path", (event, points) => {
+    ipcMain.on("draw-path", (event, points , settings) => {
         lastPoints = points;
+        lastSettings=settings
         console.log(`🎨 Starting drawing from cursor position`);
-        startDrawing(points);
+        startDrawing(points ,settings);
     });
 
     globalShortcut.register("F6", () => {
         console.log("▶️ Starting drawing...");
-        startDrawing(lastPoints);
+        startDrawing(lastPoints , lastSettings);
     });
 
     globalShortcut.register("F7", () => {

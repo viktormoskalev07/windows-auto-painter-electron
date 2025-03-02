@@ -2,9 +2,29 @@ import { screen, app, BrowserWindow, ipcMain, globalShortcut } from "electron";
 import path from "path";
 import { fileURLToPath } from "url";
 import { exec } from "child_process";
+const sortPointsByProximity = (points) => {
+  if (points.length === 0) return [];
+  const sorted = [];
+  const remaining = [...points];
+  sorted.push(remaining.shift());
+  while (remaining.length > 0) {
+    const lastPoint = sorted[sorted.length - 1];
+    let nearestIndex = 0;
+    let minDistance = Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const dx = remaining[i].x - lastPoint.x;
+      const dy = remaining[i].y - lastPoint.y;
+      const distance = dx * dx + dy * dy;
+      if (distance < minDistance) {
+        minDistance = distance;
+        nearestIndex = i;
+      }
+    }
+    sorted.push(remaining.splice(nearestIndex, 1)[0]);
+  }
+  return sorted;
+};
 let isDrawing = false;
-let interval = null;
-let currentMonitor = null;
 function getCursorPosition() {
   const cursor = screen.getCursorScreenPoint();
   return {
@@ -12,13 +32,15 @@ function getCursorPosition() {
     y: cursor.y
   };
 }
-function startDrawing(points) {
+function startDrawing(_points, settings) {
+  console.log(settings);
+  const points = sortPointsByProximity(_points);
   if (isDrawing) return;
   let { x: startX, y: startY } = getCursorPosition();
   isDrawing = true;
   let index = 0;
   let lastX = startX, lastY = startY;
-  interval = setInterval(() => {
+  const loop = () => {
     if (!isDrawing || index >= points.length) {
       stopDrawing();
       return;
@@ -27,28 +49,27 @@ function startDrawing(points) {
     const adjX = Math.round(startX + x);
     const adjY = Math.round(startY + y);
     if (adjX !== lastX || adjY !== lastY) {
-      console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
-      exec("nircmd.exe sendmouse left up");
       exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
       exec("nircmd.exe sendmouse left down");
-      exec("nircmd.exe sendmouse left up");
+      if (!(settings == null ? void 0 : settings.oneLine)) {
+        exec("nircmd.exe sendmouse left up");
+      }
       lastX = adjX;
       lastY = adjY;
     }
     index++;
-  }, 5);
+    setTimeout(loop, 1);
+  };
+  loop();
 }
 function stopDrawing() {
-  if (interval) {
-    clearInterval(interval);
-    interval = null;
-  }
   isDrawing = false;
-  console.log("🛑 Drawing stopped!");
+  console.log(" Drawing stopped!");
 }
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 let mainWindow;
 let lastPoints = [];
+let lastSettings = [];
 app.whenReady().then(() => {
   mainWindow = new BrowserWindow({
     width: 1920,
@@ -67,18 +88,20 @@ app.whenReady().then(() => {
   app.commandLine.appendSwitch("force-device-scale-factor", "1");
   mainWindow.webContents.openDevTools();
   mainWindow.loadURL("http://localhost:5173");
-  ipcMain.on("load-points", (event, points) => {
+  ipcMain.on("load-points", (event, points, settings) => {
     lastPoints = points;
+    lastSettings = settings;
     console.log(`✅ Points loaded (${points.length} points)`);
   });
-  ipcMain.on("draw-path", (event, points) => {
+  ipcMain.on("draw-path", (event, points, settings) => {
     lastPoints = points;
+    lastSettings = settings;
     console.log(`🎨 Starting drawing from cursor position`);
-    startDrawing(points);
+    startDrawing(points, settings);
   });
   globalShortcut.register("F6", () => {
     console.log("▶️ Starting drawing...");
-    startDrawing(lastPoints);
+    startDrawing(lastPoints, lastSettings);
   });
   globalShortcut.register("F7", () => {
     console.log("⏹️ Stopping drawing...");

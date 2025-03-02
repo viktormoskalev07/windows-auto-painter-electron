@@ -7,7 +7,7 @@ function App() {
     const [image, setImage] = useState(null);
     const [modifiedImage, setModifiedImage] = useState(null);
     const [points, setPoints] = useState([]);
-    const [shift, setShift] = useState({x: 100, y: 100});
+    const [shift, setShift] = useState({x: 2400, y: 800});
     const [brightnessThreshold, setBrightnessThreshold] = useState(128);
     const [quality, setQuality] = useState(128);
 

@@ -44,7 +44,7 @@ export const processImage = ({imageSource, setModifiedImage, setPoints, brightne
             for (let x = 0; x < canvas.width; x++) {
                 const index = (y * canvas.width + x) * 4;
                 if (data[index] === 0 && data[index + 3] !== 0) { // Black pixels with non-transparent alpha
-                    newPoints.push({x, y});
+                    newPoints.push({x:x*10, y:y*10});
                 }
             }
         }

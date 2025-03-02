@@ -10,35 +10,16 @@ let currentMonitor = null; // Текущий активный монитор
  */
 function getCursorPosition() {
     const cursor = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursor);
-
-    currentMonitor = display.id; // Запоминаем текущий монитор
-    const scaleFactor = display.scaleFactor || 1;
-
-    console.log(`🖥️ Active Monitor ID: ${display.id}, DPI Scale: ${scaleFactor}`);
-
     return {
-        x: (cursor.x - display.bounds.x) * scaleFactor,
-        y: (cursor.y - display.bounds.y) * scaleFactor,
-        scaleFactor,
-        display,
+        x: cursor.x,
+        y: cursor.y
     };
 }
 
 /**
  * Проверяет, не перешёл ли курсор на другой монитор.
  */
-function checkMonitorChange() {
-    const cursor = screen.getCursorScreenPoint();
-    const display = screen.getDisplayNearestPoint(cursor);
 
-    if (display.id !== currentMonitor) {
-        console.log(`🔄 Monitor changed! New Monitor ID: ${display.id}`);
-        currentMonitor = display.id;
-        return getCursorPosition(); // Возвращаем обновлённые координаты и scaleFactor
-    }
-    return null;
-}
 
 /**
  * Запускает рисование с автоматическим учётом DPI каждого монитора.
@@ -46,43 +27,32 @@ function checkMonitorChange() {
 export function startDrawing(points) {
     if (isDrawing) return;
 
-    let { x: startX, y: startY, scaleFactor } = getCursorPosition();
-
-
+    let { x: startX, y: startY } = getCursorPosition();
     isDrawing = true;
     let index = 0;
+    let lastX = startX, lastY = startY;
 
     interval = setInterval(() => {
         if (!isDrawing || index >= points.length) {
             stopDrawing();
             return;
         }
-
         const { x, y } = points[index];
+        const adjX = Math.round(startX + x);
+        const adjY = Math.round(startY + y);
 
-        // Проверяем смену монитора во время рисования
-        const newMonitor = checkMonitorChange();
-        if (newMonitor) {
-            startX = newMonitor.x;
-            startY = newMonitor.y;
-            scaleFactor = newMonitor.scaleFactor;
-        }
-
-        // Корректируем координаты перед отправкой в nircmd.exe
-        const adjX = Math.round((startX + x) / scaleFactor);
-        const adjY = Math.round((startY + y) / scaleFactor);
-
-        console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
-
-        exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
-
-        if (index % 5 === 0) {
+        if (adjX !== lastX || adjY !== lastY) {
+            console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
+            exec("nircmd.exe sendmouse left up");
+            exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
             exec("nircmd.exe sendmouse left down");
             exec("nircmd.exe sendmouse left up");
+            lastX = adjX;
+            lastY = adjY;
         }
 
         index++;
-    }, 50);
+    }, 5);
 }
 
 /**

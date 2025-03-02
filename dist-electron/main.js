@@ -7,54 +7,36 @@ let interval = null;
 let currentMonitor = null;
 function getCursorPosition() {
   const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
-  currentMonitor = display.id;
-  const scaleFactor = display.scaleFactor || 1;
-  console.log(`🖥️ Active Monitor ID: ${display.id}, DPI Scale: ${scaleFactor}`);
   return {
-    x: (cursor.x - display.bounds.x) * scaleFactor,
-    y: (cursor.y - display.bounds.y) * scaleFactor,
-    scaleFactor,
-    display
+    x: cursor.x,
+    y: cursor.y
   };
-}
-function checkMonitorChange() {
-  const cursor = screen.getCursorScreenPoint();
-  const display = screen.getDisplayNearestPoint(cursor);
-  if (display.id !== currentMonitor) {
-    console.log(`🔄 Monitor changed! New Monitor ID: ${display.id}`);
-    currentMonitor = display.id;
-    return getCursorPosition();
-  }
-  return null;
 }
 function startDrawing(points) {
   if (isDrawing) return;
-  let { x: startX, y: startY, scaleFactor } = getCursorPosition();
+  let { x: startX, y: startY } = getCursorPosition();
   isDrawing = true;
   let index = 0;
+  let lastX = startX, lastY = startY;
   interval = setInterval(() => {
     if (!isDrawing || index >= points.length) {
       stopDrawing();
       return;
     }
     const { x, y } = points[index];
-    const newMonitor = checkMonitorChange();
-    if (newMonitor) {
-      startX = newMonitor.x;
-      startY = newMonitor.y;
-      scaleFactor = newMonitor.scaleFactor;
-    }
-    const adjX = Math.round((startX + x) / scaleFactor);
-    const adjY = Math.round((startY + y) / scaleFactor);
-    console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
-    exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
-    if (index % 5 === 0) {
+    const adjX = Math.round(startX + x);
+    const adjY = Math.round(startY + y);
+    if (adjX !== lastX || adjY !== lastY) {
+      console.log(`🎯 Adjusted coords: x=${adjX}, y=${adjY} (Monitor: ${currentMonitor})`);
+      exec("nircmd.exe sendmouse left up");
+      exec(`nircmd.exe setcursor ${adjX} ${adjY}`);
       exec("nircmd.exe sendmouse left down");
       exec("nircmd.exe sendmouse left up");
+      lastX = adjX;
+      lastY = adjY;
     }
     index++;
-  }, 50);
+  }, 5);
 }
 function stopDrawing() {
   if (interval) {
